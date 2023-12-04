@@ -63,6 +63,7 @@ fn analyze_engine(cells: &Vec<Vec<Cell>>) -> (u32, u32) {
             let start = if start > 0 { start - 1 } else { start };
 
             let to_check = {
+                // the two end caps here might actually be within the digits, but that's okay
                 let mut to_check = vec![(r, start), (r, end)];
                 if r > 0 {
                     to_check.extend((start..=end).map(|d_c| (r - 1, d_c)));
