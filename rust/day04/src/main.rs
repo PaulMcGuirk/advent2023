@@ -17,6 +17,7 @@ fn score_cards(cards: &Vec<(HashSet<usize>, HashSet<usize>)>) -> usize {
 fn score_cards_elflike(cards: &Vec<(HashSet<usize>, HashSet<usize>)>) -> usize {
     let wins = count_wins(cards);
 
+    // card_counts[i] = 1 + the number of cards directly one by card i
     let mut card_counts = vec![1; cards.len()];
 
     for i in (0..cards.len()).rev() {
@@ -42,7 +43,7 @@ fn parse_input(s: &str) -> Vec<(HashSet<usize>, HashSet<usize>)> {
 
 fn main() {
     println!("Advent of Code 2023");
-    println!("Day 3: Gear Ratios");
+    println!("Day 4: Scratchcards");
 
     let now = Instant::now();
 
