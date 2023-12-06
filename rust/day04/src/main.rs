@@ -5,13 +5,17 @@ use std::time::Instant;
 const FILEPATH: &str = "./input/input.txt";
 
 fn count_wins(cards: &Vec<(HashSet<usize>, HashSet<usize>)>) -> Vec<usize> {
-    cards.iter().
-        map(|(winners, drawn)| winners.intersection(drawn).count())
+    cards
+        .iter()
+        .map(|(winners, drawn)| winners.intersection(drawn).count())
         .collect::<Vec<_>>()
 }
 
 fn score_cards(cards: &Vec<(HashSet<usize>, HashSet<usize>)>) -> usize {
-    count_wins(cards).into_iter().map(|count| 1 << count >> 1).sum()
+    count_wins(cards)
+        .into_iter()
+        .map(|count| 1 << count >> 1)
+        .sum()
 }
 
 fn score_cards_elflike(cards: &Vec<(HashSet<usize>, HashSet<usize>)>) -> usize {
@@ -31,14 +35,19 @@ fn score_cards_elflike(cards: &Vec<(HashSet<usize>, HashSet<usize>)>) -> usize {
 }
 
 fn parse_input(s: &str) -> Vec<(HashSet<usize>, HashSet<usize>)> {
-    s.trim().lines()
+    s.trim()
+        .lines()
         .map(|line| {
             let scores = line.split(":").skip(1).next().unwrap();
-            let mut nums = scores.split("|")
-                .map(|pc| pc.trim().split_whitespace().map(|n| n.trim().parse::<usize>().unwrap()).collect::<HashSet<_>>());
+            let mut nums = scores.split("|").map(|pc| {
+                pc.trim()
+                    .split_whitespace()
+                    .map(|n| n.trim().parse::<usize>().unwrap())
+                    .collect::<HashSet<_>>()
+            });
             (nums.next().unwrap(), nums.next().unwrap())
         })
-    .collect::<Vec<_>>()
+        .collect::<Vec<_>>()
 }
 
 fn main() {

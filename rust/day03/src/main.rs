@@ -9,17 +9,23 @@ enum Cell {
     Digit(u32),
     Gear,
     OtherSymbol,
-    Empty
+    Empty,
 }
 
 fn parse_input(s: &str) -> Vec<Vec<Cell>> {
-    s.trim().lines()
-        .map(|line| line.trim().chars().map(|c| match c {
-            '.' => Cell::Empty,
-            ch if ch.is_digit(10) => Cell::Digit(ch.to_digit(10).unwrap() as u32),
-            '*' => Cell::Gear,
-            _ => Cell::OtherSymbol
-        }).collect::<Vec<_>>())
+    s.trim()
+        .lines()
+        .map(|line| {
+            line.trim()
+                .chars()
+                .map(|c| match c {
+                    '.' => Cell::Empty,
+                    ch if ch.is_digit(10) => Cell::Digit(ch.to_digit(10).unwrap() as u32),
+                    '*' => Cell::Gear,
+                    _ => Cell::OtherSymbol,
+                })
+                .collect::<Vec<_>>()
+        })
         .collect::<Vec<_>>()
 }
 
@@ -31,7 +37,6 @@ fn analyze_engine(cells: &Vec<Vec<Cell>>) -> (u32, u32) {
     let mut gears = HashMap::<(usize, usize), Vec<u32>>::new();
 
     for r in 0..num_rows {
-        
         let mut digits = vec![];
 
         for c in 0..num_cols {
@@ -52,7 +57,7 @@ fn analyze_engine(cells: &Vec<Vec<Cell>>) -> (u32, u32) {
             // because we're out of space. adjust the end accordingly
             let end = match cell {
                 Cell::Digit(_) => c,
-                _ => c - 1
+                _ => c - 1,
             };
 
             let start = end - (digits.len() - 1);
@@ -88,7 +93,7 @@ fn analyze_engine(cells: &Vec<Vec<Cell>>) -> (u32, u32) {
                             gears.insert(pair, vec![]);
                         }
                         gears.get_mut(&pair).unwrap().push(code)
-                    },
+                    }
                     _ => {}
                 }
             }
@@ -99,14 +104,16 @@ fn analyze_engine(cells: &Vec<Vec<Cell>>) -> (u32, u32) {
         }
     }
 
-    let gear_ratio_sum = gears.into_iter()
+    let gear_ratio_sum = gears
+        .into_iter()
         .filter_map(|(_, codes)| {
             if codes.len() != 2 {
                 None
             } else {
                 Some(codes[0] * codes[1])
             }
-        }).sum();
+        })
+        .sum();
 
     (part_num_sum, gear_ratio_sum)
 }
