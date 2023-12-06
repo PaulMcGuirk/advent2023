@@ -12,10 +12,10 @@ fn num_wins(time: u64, record: u64) -> u64 {
     let ta = (tf - ((tf * tf) - 4.0 * df).sqrt()) / 2.0;
     let tb = (tf + ((tf * tf) - 4.0 * df).sqrt()) / 2.0;
 
-    let ta = ta.ceil() as u64;
+    let ta = ta.floor() as u64;
     let tb = tb.ceil() as u64;
 
-    // do a little search around the above just in case we run into floating point error
+    // do a little search around the above just to avoid getting confused by rounding/fpe
     let ta = ((ta - 1)..=(ta + 1))
         .find(|t| t * (time - t) > record)
         .unwrap();
@@ -35,8 +35,10 @@ fn parse_input(input: &str) -> ((u64, u64), Vec<(u64, u64)>) {
         .map(|ln| ln.split_whitespace().skip(1).collect::<Vec<_>>())
         .collect::<Vec<_>>();
 
-    let concat_time = data[0].join("").parse::<u64>().unwrap();
-    let concat_dist = data[1].join("").parse::<u64>().unwrap();
+    let mut concat = data.iter().map(|d| d.join("").parse::<u64>().unwrap());
+
+    let concat_time = concat.next().unwrap();
+    let concat_dist = concat.next().unwrap();
 
     let races = data[0]
         .iter()
