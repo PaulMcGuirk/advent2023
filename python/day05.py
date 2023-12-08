@@ -4,19 +4,20 @@ import time
 FILEPATH = './input/input05.txt'
 
 def _farm(seeds, maps, combine):
-    intervals = [(seeds[i], seeds[i] + seeds[i + 1] - 1) for i in range(0, len(seeds), 2)] if combine else [(s, s) for s in seeds]
-    
-    for map in maps:
-        new_intervals = []
-        to_map = [interval for interval in intervals]
-        while to_map:
-            interval = to_map.pop()
+    if combine:
+        intervals = [(seeds[i], seeds[i] + seeds[i + 1] - 1) for i in range(0, len(seeds), 2)]
+    else:
+        intervals = [(s, s) for s in seeds]
 
-            start, end = interval
+    for map_ in maps:
+        new_intervals = []
+        to_map = list(intervals)
+        while to_map:
+            start, end = to_map.pop()
 
             intersect = False
 
-            for sub_map in map:
+            for sub_map in map_:
                 (dest_start, src_start, width) = sub_map
                 src_end = src_start + width - 1
                 intersect = start <= src_end and src_start <= end
@@ -39,7 +40,7 @@ def _farm(seeds, maps, combine):
                 break
 
             if not intersect:
-                new_intervals.append(interval)
+                new_intervals.append((start, end))
         intervals = new_intervals
 
     return min(interval[0] for interval in intervals)
@@ -49,7 +50,8 @@ def _process_input(raw_input):
     pcs = raw_input.strip().split("\n\n")
 
     seeds = [int(v) for v in pcs[0].strip().split(":")[1].split(' ') if v.strip()]
-    maps = [[tuple(int(v) for v in ln.split(' ') if v.strip()) for ln in pc.split("\n")[1:] if ln.strip()] for pc in pcs[1:]]
+    maps = [[tuple(int(v) for v in ln.split(' ') if v.strip())
+             for ln in pc.split("\n")[1:] if ln.strip()] for pc in pcs[1:]]
 
     return seeds, maps
 
@@ -60,39 +62,6 @@ def _run():
     tic = time.perf_counter()
     with open(FILEPATH, encoding="utf-8") as f:
         raw_input = f.read()
-#     raw_input = """seeds: 79 14 55 13
-
-# seed-to-soil map:
-# 50 98 2
-# 52 50 48
-
-# soil-to-fertilizer map:
-# 0 15 37
-# 37 52 2
-# 39 0 15
-
-# fertilizer-to-water map:
-# 49 53 8
-# 0 11 42
-# 42 0 7
-# 57 7 4
-
-# water-to-light map:
-# 88 18 7
-# 18 25 70
-
-# light-to-temperature map:
-# 45 77 23
-# 81 45 19
-# 68 64 13
-
-# temperature-to-humidity map:
-# 0 69 1
-# 1 0 69
-
-# humidity-to-location map:
-# 60 56 37
-# 56 93 4"""
 
     seeds, maps = _process_input(raw_input)
 
