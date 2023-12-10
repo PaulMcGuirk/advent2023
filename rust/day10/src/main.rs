@@ -1,34 +1,7 @@
-use std::collections::HashSet;
 use std::fs;
 use std::time::Instant;
 
 const FILEPATH: &str = "./input/input.txt";
-
-#[derive(Copy, Clone)]
-struct Position {
-    row: usize,
-    col: usize,
-}
-
-impl Position {
-    fn move_(&self, dir: &Direction) -> Self {
-        let (row, col) = match dir {
-            Direction::North => (self.row - 1, self.col),
-            Direction::South => (self.row + 1, self.col),
-            Direction::East => (self.row, self.col + 1),
-            Direction::West => (self.row, self.col - 1),
-        };
-        Self { row, col }
-    }
-}
-
-#[derive(Debug, Eq, PartialEq)]
-enum Direction {
-    North,
-    South,
-    East,
-    West,
-}
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum Tile {
@@ -41,152 +14,52 @@ enum Tile {
     Ground,
 }
 
-fn find_loop(initial_pos: &Position, grid: &Vec<Vec<Tile>>) -> Vec<Position> {
-    let mut pos = Position {
-        row: initial_pos.row,
-        col: initial_pos.col,
-    };
+fn find_main_loop(initial_pos: (usize, usize), grid: &Vec<Vec<Tile>>) -> Vec<(usize, usize)> {
+    let (mut r, mut c) = initial_pos;
 
-    let mut dist = 0;
-    let mut dir = match grid[pos.row][pos.col] {
-        Tile::Vertical | Tile::SouthEast | Tile::SouthWest => Direction::South,
-        Tile::NorthEast | Tile::NorthWest => Direction::North,
-        Tile::Horizontal => Direction::East,
+    let (mut d_r, mut d_c) = match grid[r][c] {
+        Tile::Vertical | Tile::SouthEast | Tile::SouthWest => (1isize, 0isize),
+        Tile::NorthEast | Tile::NorthWest => (-1, 0),
+        Tile::Horizontal => (0, 1),
         Tile::Ground => panic!(),
     };
-    let mut loop_ = vec![];
+    let mut main_loop = vec![];
 
     loop {
-        println!("pos = {} {}", pos.row, pos.col);
-        pos = pos.move_(&dir);
-        println!("new pos = {} {}", pos.row, pos.col);
-        loop_.push(pos.clone());
-        if pos.row == initial_pos.row && pos.col == initial_pos.col {
+        (r, c) = ((r as isize + d_r) as usize, (c as isize + d_c) as usize);
+        main_loop.push((r, c));
+
+        if (r, c) == initial_pos {
             break;
         }
 
-        let new_tile = grid[pos.row][pos.col];
-        println!("new tile = {:?}", new_tile);
-        dir = match new_tile {
-            Tile::Vertical => dir,
-            Tile::Horizontal => dir,
-            Tile::NorthEast => {
-                if dir == Direction::South {
-                    Direction::East
-                } else {
-                    Direction::North
-                }
-            }
-            Tile::NorthWest => {
-                if dir == Direction::South {
-                    Direction::West
-                } else {
-                    Direction::North
-                }
-            }
-            Tile::SouthEast => {
-                if dir == Direction::North {
-                    Direction::East
-                } else {
-                    Direction::South
-                }
-            }
-            Tile::SouthWest => {
-                if dir == Direction::North {
-                    Direction::West
-                } else {
-                    Direction::South
-                }
-            }
+        (d_r, d_c) = match grid[r][c] {
+            Tile::Vertical | Tile::Horizontal => (d_r, d_c),
+            Tile::NorthEast | Tile::SouthWest => (d_c, d_r),
+            Tile::NorthWest | Tile::SouthEast => (-d_c, -d_r),
             _ => panic!(),
         };
     }
 
-    loop_
+    main_loop
 }
 
-fn area_enclosed(loop_: &Vec<Position>, grid: &Vec<Vec<Tile>>) -> u32 {
-    let loop_points = loop_
+fn measure_loop(polygon: &Vec<(usize, usize)>) -> (usize, usize) {
+    let perim = polygon.len();
+    let area = polygon
         .iter()
-        .map(|pos| (pos.row, pos.col))
-        .collect::<HashSet<_>>();
-
-    let num_rows = grid.len();
-    let num_cols = grid[0].len();
-
-    let mut area = 0;
-    let mut last_bend = None;
-    for r in 0..num_rows {
-        let mut in_grid = false;
-        for c in 0..num_cols {
-            let mut desp = '.';
-            if loop_points.contains(&(r, c)) {
-                match grid[r][c] {
-                    Tile::Vertical => {
-                        in_grid = !in_grid;
-                        last_bend = None;
-                    }
-                    Tile::NorthWest => {
-                        if let Some(Tile::SouthEast) = last_bend {
-                            in_grid = !in_grid;
-                        }
-                        last_bend = None;
-                    }
-                    Tile::SouthWest => {
-                        if let Some(Tile::NorthEast) = last_bend {
-                            in_grid = !in_grid;
-                        }
-                        last_bend = None;
-                    }
-                    Tile::NorthEast => {
-                        last_bend = Some(Tile::NorthEast);
-                    }
-                    Tile::SouthEast => {
-                        last_bend = Some(Tile::SouthEast);
-                    }
-                    Tile::Horizontal => (),
-                    Tile::Ground => panic!(),
-                }
-                // in_grid = match grid[r][c] {
-                //     Tile::Horizontal => in_grid,
-                //     Tile::NorthWest => {
-                //         let toggle = match last_bend {
-                //             None => in_grid,
-                //             Some(Tile::NorthEast) => in_grid,
-                //             Some(Tile::SouthEast) => !in_grid,
-                //             _ => panic!()
-                //         };
-                //         last_bend = None;
-                //         toggle
-                //     },
-                //     Tile::SouthWest => {
-                //         let toggle = match last_bend {
-                //             None => in_grid,
-                //             Some(Tile::SouthEast) => in_grid,
-                //             Some(Tile::NorthEast) => !in_grid,
-                //             _ => panic!()
-                //         };
-                //         last_bend = None;
-                //         toggle
-                //     }
-
-                //      | Tile::NorthWest | Tile::SouthWest => in_grid,
-                //     _ => !in_grid,
-                desp = '█';
-            } else if in_grid {
-                // println!("{} {}", r, c);
-                area += 1;
-                desp = 'I';
-            }
-            print!("{}", desp);
-        }
-        println!("");
-    }
-
-    area
+        .zip(polygon.iter().skip(1).chain(polygon.iter().take(1)))
+        .map(|(p1, p2)| {
+            let &(r1, c1) = p1;
+            let &(r2, c2) = p2;
+            (c1 * r2) as i32 - (c2 * r1) as i32 // shoelace formula
+        })
+        .sum::<i32>()
+        / 2;
+    (perim, area as usize)
 }
 
-fn parse_input(raw_input: &str) -> (Position, Vec<Vec<Tile>>) {
+fn parse_input(raw_input: &str) -> ((usize, usize), Vec<Vec<Tile>>) {
     let chars = raw_input
         .trim()
         .lines()
@@ -214,14 +87,10 @@ fn parse_input(raw_input: &str) -> (Position, Vec<Vec<Tile>>) {
                 'F' => Tile::SouthEast,
                 '.' => Tile::Ground,
                 'S' => {
-                    println!("{} {}", r, c);
-                    starting_pos = Some(Position {
-                        row: r + 1,
-                        col: c + 1,
-                    });
+                    starting_pos = Some((r + 1, c + 1));
                     Tile::Ground // we'll fix below
                 }
-                _ => panic!(),
+                _ => panic!(""),
             };
             row.push(tile);
         }
@@ -231,11 +100,11 @@ fn parse_input(raw_input: &str) -> (Position, Vec<Vec<Tile>>) {
 
     grid.push(vec![Tile::Ground; num_cols + 2]);
 
-    let starting_pos = starting_pos.unwrap();
-    let up = grid[starting_pos.row - 1][starting_pos.col];
-    let down = grid[starting_pos.row + 1][starting_pos.col];
-    let left = grid[starting_pos.row][starting_pos.col - 1];
-    let right = grid[starting_pos.row][starting_pos.col + 1];
+    let (r, c) = starting_pos.unwrap();
+    let up = grid[r - 1][c];
+    let down = grid[r + 1][c];
+    let left = grid[r][c - 1];
+    let right = grid[r][c + 1];
 
     let starting_tile = if up == Tile::Vertical || up == Tile::SouthEast || up == Tile::SouthWest {
         if left == Tile::Horizontal || left == Tile::SouthEast || left == Tile::NorthEast {
@@ -256,9 +125,9 @@ fn parse_input(raw_input: &str) -> (Position, Vec<Vec<Tile>>) {
         Tile::Horizontal
     };
 
-    grid[starting_pos.row][starting_pos.col] = starting_tile;
+    grid[r][c] = starting_tile;
 
-    (starting_pos, grid)
+    ((r, c), grid)
 }
 
 fn main() {
@@ -268,41 +137,13 @@ fn main() {
     let now = Instant::now();
 
     let raw_input = fs::read_to_string(FILEPATH).expect("Could not read file");
-    //     // let raw_input = "-L|F7
-    //     // 7S-7|
-    //     // L|7||
-    //     // -L-J|
-    //     // L|-JF";
-    //     // let raw_input = "7-F7-
-    //     // .FJ|7
-    //     // SJLL7
-    //     // |F--J
-    //     // LJ.LJ";
-    //     let raw_input = "...........
-    // .S-------7.
-    // .|F-----7|.
-    // .||.....||.
-    // .||.....||.
-    // .|L-7.F-J|.
-    // .|..|.|..|.
-    // .L--J.L--J.
-    // ...........";
-    //     let raw_input = "FF7FSF7F7F7F7F7F---7
-    // L|LJ||||||||||||F--J
-    // FL-7LJLJ||||||LJL-77
-    // F--JF--7||LJLJ7F7FJ-
-    // L---JF-JLJ.||-FJLJJ7
-    // |F|F-JF---7F7-L7L|7|
-    // |FFJF7L7F-JF7|JL---7
-    // 7-L-JL7||F7|L7F-7F7|
-    // L.L7LFJ|||||FJL7||LJ
-    // L7JLJL-JLJLJL--JLJ.L";
     let (start_pos, grid) = parse_input(&raw_input);
-    println!("{:?}", grid[start_pos.row][start_pos.col]);
 
-    let loop_ = find_loop(&start_pos, &grid);
-    let part_one = loop_.len() / 2;
-    let part_two = area_enclosed(&loop_, &grid);
+    let main_loop = find_main_loop(start_pos, &grid);
+    let (perim, area) = measure_loop(&main_loop);
+
+    let part_one = perim / 2;
+    let part_two = area + 1 - part_one; // pick's theorem
 
     println!("Part one: {}", part_one);
     println!("Part two: {}", part_two);
