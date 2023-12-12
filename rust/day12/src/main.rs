@@ -48,12 +48,9 @@ fn count_arrangements_for_record(statuses: &Vec<Status>, pattern: &Vec<usize>) -
                 continue;
             }
 
-            let last = i == pattern.len() - 1;
-
-            let matches = match_first_status(&statuses[start..].to_vec(), &rest_pattern, last);
-
+            let matches = match_next_status(&statuses, &pattern, start, i);
             for (last_in_seq, ct) in matches.iter() {
-                let next_start = start + last_in_seq + 1;
+                let next_start = last_in_seq + 1;
                 let prev = new_starts.get(&next_start).unwrap_or(&0);
                 new_starts.insert(next_start, prev + count * ct);
             }
@@ -76,42 +73,40 @@ fn count_arrangements_for_record(statuses: &Vec<Status>, pattern: &Vec<usize>) -
         .sum()
 }
 
-fn match_first_status(
+fn match_next_status(
     statuses: &Vec<Status>,
     pattern: &Vec<usize>,
-    last: bool,
+    status_start: usize,
+    next_match_idx: usize,
 ) -> HashMap<usize, usize> {
+    let last = next_match_idx == pattern.len() - 1;
     let mut results = HashMap::new();
 
-    let rest = pattern[1..].iter().sum::<usize>() + pattern.len() - 1;
+    let needed_for_rest =
+        pattern[(next_match_idx + 1)..].iter().sum::<usize>() + pattern.len() - next_match_idx - 1;
+    let end = statuses.len() - needed_for_rest;
+    let to_match = pattern[next_match_idx];
 
-    let mut to_check = vec![statuses[..(statuses.len() - rest)].to_vec()];
-    let to_match = pattern[0];
+    let mut to_check = vec![status_start];
 
     while let Some(next) = to_check.pop() {
-        // println!("checkin {:?}", next);
-        if next.len() < to_match {
+        if end - next < to_match {
             continue;
         }
 
-        if next[0] == Status::Operational {
-            to_check.push(next[1..].to_vec());
+        if statuses[next] == Status::Operational {
+            to_check.push(next + 1);
             continue;
         }
 
-        if next[0] == Status::Unknown {
-            to_check.push(next[1..].to_vec());
-            let mut next = next.clone();
-            next[0] = Status::Damaged;
-            to_check.push(next);
-            continue;
+        if statuses[next] == Status::Unknown {
+            to_check.push(next + 1);
         }
 
-        if (0..to_match).all(|i| next[i] == Status::Damaged || next[i] == Status::Unknown) {
-            let run_start = statuses.len() - rest - next.len(); // where the next seq starts in statuses
-            let last_in_run = run_start + to_match - 1;
-
-            // println!("{} {}", run_start, last_in_run);
+        if (0..to_match)
+            .all(|i| statuses[next + i] == Status::Damaged || statuses[next + i] == Status::Unknown)
+        {
+            let last_in_run = next + to_match - 1;
 
             if last_in_run == statuses.len() - 1 {
                 if last {
@@ -125,7 +120,6 @@ fn match_first_status(
                 continue;
             }
 
-            // println!("adding one here");
             let prev = results.get(&(last_in_run + 1)).unwrap_or(&0);
             results.insert(last_in_run + 1, prev + 1);
         }
@@ -165,51 +159,11 @@ fn main() {
 
     let now = Instant::now();
 
-    let raw_input = "???.### 1,1,3
-.??..??...?##. 1,1,3
-?#?#?#?#?#?#?#? 1,3,1,6
-????.#...#... 4,1,1
-????.######..#####. 1,6,5
-?###???????? 3,2,1";
-    // let raw_input = "????.#...#... 4,1,1";
     let raw_input = fs::read_to_string(FILEPATH).expect("Could not read file");
-    // let raw_input = "?###???????? 3,2,1";
     let records = parse_input(&raw_input);
-
-    // for (statuses, pattern) in records.iter() {
-    //     let s = statuses
-    //         .iter()
-    //         .map(|i| match i {
-    //             Status::Damaged => '#',
-    //             Status::Operational => '.',
-    //             Status::Unknown => '?',
-    //         })
-    //         .collect::<String>();
-    //     // println!("old: {}", old);
-    //     // println!("new: {}", new);
-    //     println!("{}", s);
-    //     let old = count_arrangements_for_record_old(statuses, pattern);
-    //     let new = count_arrangements_for_record(statuses, pattern);
-    //     if old != new {
-    //         let s = statuses
-    //             .iter()
-    //             .map(|i| match i {
-    //                 Status::Damaged => '#',
-    //                 Status::Operational => '.',
-    //                 Status::Unknown => '?',
-    //             })
-    //             .collect::<String>();
-    //         println!("old: {}", old);
-    //         println!("new: {}", new);
-    //         println!("{}", s);
-    //         println!("{:?}", pattern);
-    //         break;
-    //     }
-    // }
 
     let part_one = count_arrangements(&records, 1);
     let part_two = count_arrangements(&records, 5);
-    // // let part_two = data.get_distances(1000000);
 
     println!("Part one: {}", part_one);
     println!("Part two: {}", part_two);
