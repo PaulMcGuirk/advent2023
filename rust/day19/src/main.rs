@@ -1,3 +1,4 @@
+use regex::Regex;
 use std::collections::HashMap;
 use std::fs;
 use std::time::Instant;
@@ -21,11 +22,15 @@ struct Step {
     action: Action,
 }
 
-fn process(start: usize, workflows: &Vec<Vec<Step>>, parts: &Vec<HashMap<char, u32>>) -> u32 {
+fn part_one(workflows: &Vec<Vec<Step>>, parts: &Vec<HashMap<char, u32>>) -> u32 {
     parts
         .iter()
         .filter_map(|part| {
-            if is_accepted(start, workflows, part) {
+            let region = part
+                .iter()
+                .map(|(c, val)| (*c, (*val, *val)))
+                .collect::<HashMap<_, _>>();
+            if get_acceptable_volume(workflows, &region) > 0 {
                 Some(part.values().sum::<u32>())
             } else {
                 None
@@ -34,41 +39,21 @@ fn process(start: usize, workflows: &Vec<Vec<Step>>, parts: &Vec<HashMap<char, u
         .sum()
 }
 
-fn is_accepted(start: usize, workflows: &Vec<Vec<Step>>, part: &HashMap<char, u32>) -> bool {
-    let mut idx = start;
-    loop {
-        let workflow = &workflows[idx];
-        for rule in workflow.iter() {
-            let pass = match rule.condition {
-                Condition::LessThan(c, val) => part[&c] < val,
-                Condition::GreaterThan(c, val) => part[&c] > val,
-                Condition::True => true,
-            };
-            if !pass {
-                continue;
-            }
-            match rule.action {
-                Action::Acccept => return true,
-                Action::Reject => return false,
-                Action::Send(i) => {
-                    idx = i;
-                    break;
-                }
-            }
-        }
-    }
-}
-
-fn count_acceptable(start: usize, workflows: &Vec<Vec<Step>>) -> u64 {
-    let mut res = 0;
-    let mut to_process = {
+fn part_two(workflows: &Vec<Vec<Step>>) -> u64 {
+    let seed = {
         let mut seed = HashMap::new();
         seed.insert('x', (1, 4000));
         seed.insert('m', (1, 4000));
         seed.insert('a', (1, 4000));
         seed.insert('s', (1, 4000));
-        vec![(seed, start)]
+        seed
     };
+    get_acceptable_volume(workflows, &seed)
+}
+
+fn get_acceptable_volume(workflows: &Vec<Vec<Step>>, region: &HashMap<char, (u32, u32)>) -> u64 {
+    let mut res = 0;
+    let mut to_process = vec![(region.clone(), 0)];
 
     while let Some(next) = to_process.pop() {
         let (range, idx) = next;
@@ -135,67 +120,74 @@ fn count_acceptable(start: usize, workflows: &Vec<Vec<Step>>) -> u64 {
     res
 }
 
-fn parse_input(s: &str) -> (usize, Vec<Vec<Step>>, Vec<HashMap<char, u32>>) {
+fn parse_input(s: &str) -> (Vec<Vec<Step>>, Vec<HashMap<char, u32>>) {
     let mut pcs = s.trim().split("\n\n");
 
-    let step_data = pcs
-        .next()
-        .unwrap()
-        .lines()
-        .map(|line| {
-            line.replace("}", "")
-                .split("{")
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
+    let workflow_re = Regex::new(r"^(?P<name>[a-zA-Z]+)\{(?P<steps>.*)\}$").unwrap();
+    let condition_re =
+        Regex::new(r"^(?P<attr>[xmas])(?P<op>[<>])(?P<val>\d+):(?P<action>[AR]|[a-z]+)$").unwrap();
+
+    let step_data = {
+        let mut step_data = pcs
+            .next()
+            .unwrap()
+            .lines()
+            .map(|line| {
+                let caps = workflow_re.captures(line).unwrap();
+                let name = caps["name"].to_string();
+                let steps = caps["steps"].to_string();
+                (name, steps)
+            })
+            .collect::<Vec<_>>();
+        step_data.sort_by_key(|(name, _)| if name == "in" { 0 } else { 1 });
+        step_data
+    };
 
     let step_names = step_data
         .iter()
         .enumerate()
-        .map(|(i, d)| (d[0].to_string(), i))
+        .map(|(i, d)| (d.0.clone(), i))
         .collect::<HashMap<_, _>>();
 
-    let mut rules: Vec<Option<Vec<Step>>> = vec![];
+    let mut workflows: Vec<Option<Vec<Step>>> = vec![];
     for _ in 0..step_names.len() {
-        rules.push(Some(vec![]));
+        workflows.push(Some(vec![]));
     }
 
-    for d in step_data.into_iter() {
-        let name = step_names[&d[0]];
-        let steps = d[1]
+    for (name, steps) in step_data.into_iter() {
+        let idx = step_names[&name];
+        let steps = steps
             .split(",")
-            .map(|r| {
-                let parts = r.split(":").collect::<Vec<_>>();
-                let cond = if parts.len() > 1 {
-                    let cond = parts[0];
-                    let symb = if cond.contains(">") { ">" } else { "<" };
-                    let mut sides = cond.split(symb);
-                    let lhs = sides.next().unwrap().chars().next().unwrap();
-                    let rhs = sides.next().unwrap().parse::<u32>().unwrap();
-                    if symb == ">" {
-                        Condition::GreaterThan(lhs, rhs)
-                    } else {
-                        Condition::LessThan(lhs, rhs)
-                    }
+            .map(|step| {
+                let (condition, action_str) = if let Some(caps) = condition_re.captures(step) {
+                    let attr = caps["attr"].chars().next().unwrap();
+                    let val = caps["val"].parse::<u32>().unwrap();
+                    let cond = match &caps["op"] {
+                        ">" => Condition::GreaterThan(attr, val),
+                        "<" => Condition::LessThan(attr, val),
+                        _ => panic!(),
+                    };
+                    (cond, caps["action"].to_string())
                 } else {
-                    Condition::True
+                    (Condition::True, step.to_string())
                 };
-                let action = match parts.last().unwrap() {
-                    &"A" => Action::Acccept,
-                    &"R" => Action::Reject,
-                    s => Action::Send(*step_names.get(*s).unwrap()),
+
+                let action = match action_str.as_str() {
+                    "A" => Action::Acccept,
+                    "R" => Action::Reject,
+                    s => Action::Send(*step_names.get(s).unwrap()),
                 };
-                Step {
-                    condition: cond,
-                    action,
-                }
+
+                Step { condition, action }
             })
             .collect::<Vec<_>>();
-        rules[name] = Some(steps);
+        workflows[idx] = Some(steps);
     }
 
-    let rules = rules.into_iter().map(|s| s.unwrap()).collect::<Vec<_>>();
+    let workflows = workflows
+        .into_iter()
+        .map(|s| s.unwrap())
+        .collect::<Vec<_>>();
 
     let parts = pcs
         .next()
@@ -216,7 +208,7 @@ fn parse_input(s: &str) -> (usize, Vec<Vec<Step>>, Vec<HashMap<char, u32>>) {
         })
         .collect::<Vec<_>>();
 
-    (step_names["in"], rules, parts)
+    (workflows, parts)
 }
 
 fn main() {
@@ -225,32 +217,12 @@ fn main() {
 
     let now = Instant::now();
 
-    let raw_input = "px{a<2006:qkq,m>2090:A,rfg}
-pv{a>1716:R,A}
-lnx{m>1548:A,A}
-rfg{s<537:gd,x>2440:R,A}
-qs{s>3448:A,lnx}
-qkq{x<1416:A,crn}
-crn{x>2662:A,R}
-in{s<1351:px,qqz}
-qqz{s>2770:qs,m<1801:hdj,R}
-gd{a>3333:R,R}
-hdj{m>838:A,pv}
-
-{x=787,m=2655,a=1222,s=2876}
-{x=1679,m=44,a=2067,s=496}
-{x=2036,m=264,a=79,s=2244}
-{x=2461,m=1339,a=466,s=291}
-{x=2127,m=1623,a=2188,s=1013}";
     let raw_input = fs::read_to_string(FILEPATH).expect("Could not read file");
 
-    let (start, workflows, parts) = parse_input(&raw_input);
+    let (workflows, parts) = parse_input(&raw_input);
 
-    let part_one = process(start, &workflows, &parts);
-    let part_two = count_acceptable(start, &workflows);
-
-    // let part_one = DigPlan::from_str(&raw_input).volume();
-    // let part_two = DigPlan::from_str_elvish(&raw_input).volume();
+    let part_one = part_one(&workflows, &parts);
+    let part_two = part_two(&workflows);
 
     println!("Part one: {}", part_one);
     println!("Part two: {}", part_two);
