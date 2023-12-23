@@ -102,13 +102,12 @@ fn find_longest_path(map: &Vec<Vec<Tile>>, slippery: bool) -> usize {
         })
         .collect::<Vec<_>>();
 
+    // dfs on nodes
     let mut res = None;
-
-    let mut to_visit = vec![(vec![0usize], 0)];
+    let mut to_visit = vec![(0, 1u64, 0)];
 
     while let Some(next) = to_visit.pop() {
-        let (path, dist) = next;
-        let &latest = path.last().unwrap();
+        let (latest, seen, dist) = next;
 
         if latest == 1 {
             res = Some(dist.max(res.unwrap_or(0)));
@@ -116,13 +115,11 @@ fn find_longest_path(map: &Vec<Vec<Tile>>, slippery: bool) -> usize {
         }
 
         for (c, d) in edges[latest].iter() {
-            if path.contains(c) {
+            if seen & (1 << c) > 0 {
                 continue;
             }
 
-            let mut path = path.clone();
-            path.push(*c);
-            to_visit.push((path, dist + d));
+            to_visit.push((*c, seen + (1 << c), dist + d));
         }
     }
 
